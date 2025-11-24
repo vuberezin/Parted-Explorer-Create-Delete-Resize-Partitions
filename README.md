@@ -1,1 +1,1 @@
-# Parted Explorer: Create/Delete/Resize Partitions on Linux
+# Parted Explorer: Create/Delete/Resize Partitions in Linux
