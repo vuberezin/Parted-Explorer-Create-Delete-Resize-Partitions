@@ -31,6 +31,12 @@ struct DeviceInfo {
     std::vector<PartitionInfo> partitions;
 };
 
+// Structure to manage device
+typedef struct {
+    PedDevice *dev;
+    bool is_open;
+} ManagedDevice;
+
 class DiskManager {
 public:
     DiskManager();
@@ -42,6 +48,7 @@ public:
     bool deletePartition(const QString& devicePath, int partitionNumber);
     bool resizePartition(const QString& devicePath, int partitionNumber, long long newEndMBytes);
     bool format_ext4_library(const char* partition_path);
+    void close_my_device();
 
 private:
     QString getPartitionFlags(PedPartition *partition);
