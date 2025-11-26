@@ -281,7 +281,6 @@ bool DiskManager::createPartition(const QString& devicePath, long long startByte
     ped_constraint_destroy(constraint);
     ped_disk_destroy(disk);
     //ped_device_close(dev);
-    close_my_device();
     return success;
     } else {
         qDebug() << "Failed to create partition.";
@@ -329,13 +328,8 @@ bool DiskManager::deletePartition(const QString& devicePath, int partitionNumber
 
     ped_disk_destroy(disk);
     //ped_device_close(dev);
-    close_my_device();
     return success;
 }
-
-#include <parted/parted.h>
-#include <QDebug>
-#include <QString>
 
 bool DiskManager::resizePartition(const QString& devicePath, int partitionNumber, long long newEndMBytes) {
     // libparted works with device names like "/dev/sda"
@@ -414,7 +408,6 @@ bool DiskManager::resizePartition(const QString& devicePath, int partitionNumber
     // ped_geometry_destroy(newGeom); // This was for the old, incorrect function
     ped_disk_destroy(disk);
     //ped_device_close(dev);
-    close_my_device();
     // Remember to resize the filesystem inside the partition using external tools after this.
 
     return success;
