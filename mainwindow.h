@@ -18,6 +18,7 @@ private slots:
     void onCreatePartitionClicked();
     void onDeletePartitionClicked();
     void onResizePartitionClicked();
+    void oncCreateDiskFlagClicked();
 
 private:
     DiskManager diskManager;
@@ -26,6 +27,7 @@ private:
     QPushButton *createButton;
     QPushButton *deleteButton;
     QPushButton *resizeButton;
+    QPushButton *createDiskLabelButton;
 
     void displayDevices(const std::vector<DeviceInfo>& devices);
     PartitionInfo getSelectedPartitionInfo();
