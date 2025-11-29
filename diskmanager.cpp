@@ -1,4 +1,11 @@
 #include "diskmanager.h"
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <mntent.h>
+#include <ext2fs/ext2_fs.h>
+#include <ext2fs/ext2fs.h>
+#include <uuid/uuid.h>
 #include <iostream>
 #include <QDebug>
 #include <QProcess>
@@ -22,15 +29,6 @@ PedExceptionOption DiskManager::exceptionHandler(PedException *exception) {
     // msgBox.setText("libparted Exception:" + QString::fromUtf8(exception->message));
     return PED_EXCEPTION_FIX; // Try to fix the issue if possible, otherwise it may abort.
 }
-
-
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-#include <mntent.h>
-#include <ext2fs/ext2_fs.h>
-#include <ext2fs/ext2fs.h>
-#include <uuid/uuid.h>
 
 // bool DiskManager::format_ext4_library(const char* partition_path) {
 //     errcode_t retval;
@@ -72,7 +70,6 @@ PedExceptionOption DiskManager::exceptionHandler(PedException *exception) {
 //     ext2fs_close(fs);
 //     return true;
 // }
-
 
 
 std::vector<DeviceInfo> DiskManager::listAllDevices() {
@@ -281,6 +278,7 @@ bool DiskManager::createPartition(const QString& devicePath, long long startByte
     ped_constraint_destroy(constraint);
     ped_disk_destroy(disk);
     //ped_device_close(dev);
+    close_my_device();
     return success;
     } else {
         qDebug() << "Failed to create partition.";
@@ -328,8 +326,11 @@ bool DiskManager::deletePartition(const QString& devicePath, int partitionNumber
 
     ped_disk_destroy(disk);
     //ped_device_close(dev);
+    close_my_device();
     return success;
 }
+
+
 
 bool DiskManager::resizePartition(const QString& devicePath, int partitionNumber, long long newEndMBytes) {
     // libparted works with device names like "/dev/sda"
@@ -408,14 +409,13 @@ bool DiskManager::resizePartition(const QString& devicePath, int partitionNumber
     // ped_geometry_destroy(newGeom); // This was for the old, incorrect function
     ped_disk_destroy(disk);
     //ped_device_close(dev);
+    close_my_device();
     // Remember to resize the filesystem inside the partition using external tools after this.
 
     return success;
 }
-
 //'my_device' is ManagedDevice struct instance
-ManagedDevice my_device = {NULL, false};
-
+ManagedDevice my_device = {NULL, true};
 // Function to SAFELY close a device (this prevents the assertion failure)
 void DiskManager::close_my_device() {
     if (my_device.is_open && my_device.dev != NULL) {
@@ -427,4 +427,86 @@ void DiskManager::close_my_device() {
     } else {
         printf("Warning: Attempted to close a device that was not open.\n");
     }
+}
+
+#include <cstring>
+
+// Helper function to convert a string name (e.g., "boot", "esp") to the PedPartitionFlag enum value
+PedPartitionFlag DiskManager::flagNameToEnum(const std::string& flag_name) {
+    // This is a basic mapping; a real application might use a more comprehensive lookup table
+    if (flag_name == "boot") return PED_PARTITION_BOOT;
+    if (flag_name == "esp") return PED_PARTITION_ESP;
+    if (flag_name == "hidden") return PED_PARTITION_HIDDEN;
+    if (flag_name == "lvm") return PED_PARTITION_LVM;
+    if (flag_name == "raid") return PED_PARTITION_RAID;
+    if (flag_name == "swap") return PED_PARTITION_SWAP;
+    // And other flags as needed...
+    return static_cast<PedPartitionFlag>(-1); // Return an invalid value if not found
+}
+
+/**
+ * Sets a specific flag on a given partition using libparted.
+ *
+ * @param dev Pointer to the PedDevice (the physical disk).
+ * @param partitionNumber The 1-based index of the partition.
+ * @param flag_to_set The PedPartitionFlag enum value (e.g., PED_PARTITION_BOOT).
+ * @param state Boolean to set the flag ON (true) or OFF (false).
+ * @return True if the operation and commit were successful, false otherwise.
+ */
+bool DiskManager::setPartitionFlag(PedDevice *dev, int partitionNumber, PedPartitionFlag flag_to_set, bool state) {
+    PedDisk *disk = ped_disk_new(dev);
+    if (!disk) {
+        std::cerr << "Failed to get disk object." << std::endl;
+        return false;
+    }
+
+    // Find the specific partition by its number
+    PedPartition *part = ped_disk_get_partition(disk, partitionNumber);
+    if (!part || part->type & PED_PARTITION_METADATA) {
+        std::cerr << "Invalid partition number or partition is metadata." << std::endl;
+        ped_disk_destroy(disk);
+        return false;
+    }
+
+    // Check if the flag is available for the current disk label type (MBR, GPT, etc.)
+    if (!ped_partition_is_flag_available(part, flag_to_set)) {
+        std::cerr << "Flag is not applicable to this disk label type." << std::endl;
+        ped_disk_destroy(disk);
+        return false;
+    }
+
+    // Set the flag state (on or off)
+    // Note: PED_FLAG_ON/PED_FLAG_OFF are actually enum values that match true/false but are more explicit
+    bool success = ped_partition_set_flag(part, flag_to_set, state);
+
+    if (success) {
+        // Commit the changes to the physical disk
+        success = ped_disk_commit(disk);
+        if (success) {
+            std::cout << "Successfully committed flag changes for flag: " << ped_partition_flag_get_name(flag_to_set) << std::endl;
+        } else {
+            std::cerr << "Failed to commit disk changes. Changes reverted/lost in memory." << std::endl;
+        }
+    } else {
+        std::cerr << "Failed to set the flag in memory (e.g., failed OS permission check)." << std::endl;
+    }
+
+    // Cleanup
+    ped_disk_destroy(disk); // This handles closing the device too.
+    return success;
+}
+
+PedDevice* DiskManager::getDeviceFromPath(const QString& path) {
+    // libparted functions generally expect a const char* (C-style string)
+    const char* devicePathCstr = path.toUtf8().constData();
+
+    PedDevice* dev = ped_device_get(devicePathCstr);
+
+    if (dev == nullptr) {
+        qCritical() << "Failed to get device for path:" << path;
+        // Check libparted errors here if necessary
+        return nullptr;
+    }
+
+    return dev;
 }
