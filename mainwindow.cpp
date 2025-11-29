@@ -24,6 +24,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     resizeButton = new QPushButton("Resize Partition", this);
     connect(resizeButton, &QPushButton::clicked, this, &MainWindow::onResizePartitionClicked);
 
+    createDiskLabelButton = new QPushButton("Set Disk Partition Flag", this);
+    connect(createDiskLabelButton, &QPushButton::clicked, this, &MainWindow::oncCreateDiskFlagClicked);
+
     QWidget *centralWidget = new QWidget(this);
     QVBoxLayout *layout = new QVBoxLayout(centralWidget);
     QHBoxLayout *buttonLayout = new QHBoxLayout();
@@ -32,6 +35,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     buttonLayout->addWidget(createButton);
     buttonLayout->addWidget(deleteButton);
     buttonLayout->addWidget(resizeButton);
+    buttonLayout->addWidget(createDiskLabelButton);
 
     layout->addLayout(buttonLayout);
     layout->addWidget(treeWidget);
@@ -217,3 +221,47 @@ void MainWindow::onResizePartitionClicked() {
         }
     }
 }
+
+void MainWindow::oncCreateDiskFlagClicked() {
+
+    PartitionInfo pInfo = getSelectedPartitionInfo();
+    if (pInfo.devicePath.isEmpty() || pInfo.isFreeSpace || pInfo.number <= 0) {
+        QMessageBox::warning(this, "Error", "Please select an active partition to manage a disk flag.");
+        return;
+    }
+
+    bool ok;
+    QString flagName = QInputDialog::getText( // Renamed from diskLabelType
+        this,
+        "Create/Set Disk Partition Flag",
+        "Enter Disk partition flag (e.g., boot, esp):",
+        QLineEdit::Normal,
+        "boot",
+        &ok
+        );
+
+    if (!ok || flagName.isEmpty()) {
+        return;
+    }
+
+    // We need a way to get the *actual* raw device pointer (PedDevice *dev) here.
+    PedDevice *dev = diskManager.getDeviceFromPath(pInfo.devicePath);
+
+    // Convert the string name to the enum value
+    PedPartitionFlag flagToSet = diskManager.flagNameToEnum(flagName.toStdString());
+    qDebug() << "dev->path: " << dev->path << "pInfo.number: " << pInfo.number;
+    // Check if the conversion was successful and we have a valid device pointer
+    if (dev != nullptr && flagToSet >= 0) { // Assuming flagNameToEnum returns -1 or similar on failure
+        // Now call the function with the correct, actual variables
+        // We assume we are always setting the flag to 'true' (state = true)
+        if (diskManager.setPartitionFlag(dev, pInfo.number, flagToSet, true)) {
+            QMessageBox::information(this, "Success", QString("Disk flag '%1' set successfully.").arg(flagName));
+            refreshDiskList();
+        } else {
+            QMessageBox::critical(this, "Failed", "Failed to set disk flag. Check root privileges and console output.");
+        }
+    } else {
+        QMessageBox::critical(this, "Failed", "Invalid flag name entered or device not found.");
+    }
+}
+
