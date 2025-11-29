@@ -206,13 +206,12 @@ bool DiskManager::createPartition(const QString& devicePath, long long startByte
     PedSector endSector = endBytes *  1024 * 1024 / dev->sector_size;
     qDebug() << "startSector:  " << startSector << "endSector:  " << endSector;
 
-
-    // if (endSector <= startSector) {
-    //     qDebug() << "Invalid partition size or end sector calculation.";
-    //     // Clean up disk object before returning
-    //     ped_disk_destroy(disk);
-    //     return false;
-    // }
+    if (endSector <= startSector) {
+        qDebug() << "Invalid partition size or end sector calculation.";
+        // Clean up disk object before returning
+        ped_disk_destroy(disk);
+        return false;
+    }
 
     PedPartitionType type = isPrimary ? PED_PARTITION_NORMAL : PED_PARTITION_LOGICAL;
     const PedFileSystemType *fsTypePtr = ped_file_system_type_get(fsType.toUtf8().constData());
