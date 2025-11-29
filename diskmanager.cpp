@@ -284,8 +284,6 @@ bool DiskManager::createPartition(const QString& devicePath, long long startByte
         qDebug() << "Failed to create partition.";
         ped_disk_delete_all(disk); // Cleanup if commit fails
     }
-
-
 }
 
 bool DiskManager::deletePartition(const QString& devicePath, int partitionNumber) {
@@ -329,8 +327,6 @@ bool DiskManager::deletePartition(const QString& devicePath, int partitionNumber
     close_my_device();
     return success;
 }
-
-
 
 bool DiskManager::resizePartition(const QString& devicePath, int partitionNumber, long long newEndMBytes) {
     // libparted works with device names like "/dev/sda"
