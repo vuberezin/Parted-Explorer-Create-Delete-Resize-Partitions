@@ -31,7 +31,7 @@ struct DeviceInfo {
     std::vector<PartitionInfo> partitions;
 };
 
-// Structure to manage device
+//Structure to manage device when it should be closed
 typedef struct {
     PedDevice *dev;
     bool is_open;
@@ -47,6 +47,9 @@ public:
     bool createPartition(const QString& devicePath, long long startBytes, long long endBytes, const QString& fsType, bool isPrimary);
     bool deletePartition(const QString& devicePath, int partitionNumber);
     bool resizePartition(const QString& devicePath, int partitionNumber, long long newEndMBytes);
+    PedPartitionFlag flagNameToEnum(const std::string& flag_name);
+    PedDevice* getDeviceFromPath(const QString& path);
+    bool setPartitionFlag(PedDevice *dev, int partitionNumber, PedPartitionFlag flag_to_set, bool state);
     bool format_ext4_library(const char* partition_path);
     void close_my_device();
 
