@@ -254,7 +254,7 @@ bool DiskManager::createPartition(const QString& devicePath, long long startByte
         //1. Determine the device path of the new partition (e.g. /dev/sda1, /dev/nvme0n1p3)
         //You can use newPartition->num for this, appending it to the base devicePath
         //we use + "p" only for /dev/loop0p1 as a test partition 
-        QString newPartPath = devicePath + "p" + QString::number(newPartition->num);
+        QString newPartPath = devicePath + "p" + QString::number(newPartition->num); <------- it's only for test
 
         // 2. Execute the mkfs command
         if (fsType == "ext4") {
