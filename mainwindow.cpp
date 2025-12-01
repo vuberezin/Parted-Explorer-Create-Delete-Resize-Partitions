@@ -240,6 +240,7 @@ void MainWindow::onCreatePartitionClicked() {
          // Input is invalid, show a warning and the loop continues
          QMessageBox::warning(this, tr("Invalid Input"),
                               tr("Partition Type must be primary, extended or logical. Please try again."));
+         return;
      }
      if (!ok || PartitionType.isEmpty()) return;
 
