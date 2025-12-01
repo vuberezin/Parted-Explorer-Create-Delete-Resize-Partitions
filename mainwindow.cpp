@@ -232,6 +232,15 @@ void MainWindow::onCreatePartitionClicked() {
         "primary",
         &ok
         );
+    // Perform custom validation (e.g., check Partition Type)
+     if (PartitionType == "primary" && PartitionType == "extended" && PartitionType == "logical") {
+         // Input is valid, break the loop
+         return;
+     } else {
+         // Input is invalid, show a warning and the loop continues
+         QMessageBox::warning(this, tr("Invalid Input"),
+                              tr("Partition Type must be primary, extended or logical. Please try again."));
+     }
      if (!ok || PartitionType.isEmpty()) return;
 
     if (ok && !fsType.isEmpty()) {
