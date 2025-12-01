@@ -227,7 +227,7 @@ void MainWindow::onCreatePartitionClicked() {
     QString PartitionType = QInputDialog::getText(
         this,
         "Create Partition",
-        "Enter Partition Type (e.g., primary, extended):",
+        "Enter Partition Type (e.g., primary, extended, logical):",
         QLineEdit::Normal,
         "primary",
         &ok
