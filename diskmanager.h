@@ -21,6 +21,12 @@ struct PartitionInfo {
     QString flags;
     bool isFreeSpace = false;
     QString devicePath; // To know which device it belongs to
+
+    // --- New fields to manage hierarchy ---
+    bool isExtendedContainer; // True if this partition entry defines the MBR container
+    bool isLogical;           // True if this is a logical drive within the extended container
+    // Optional: A unique ID to link back to the specific parent extended container item
+    // QString parentContainerId;
 };
 
 // Structure to hold device details
@@ -44,7 +50,7 @@ public:
     std::vector<DeviceInfo> listAllDevices();
 
     // Disk operations (require root privileges)
-    bool createPartition(const QString& devicePath, long long startBytes, long long endBytes, const QString& fsType, bool isPrimary);
+    bool createPartition(const QString& devicePath, long long startBytes, long long endBytes, const QString& fsType, const QString& PartitionType);
     bool deletePartition(const QString& devicePath, int partitionNumber);
     bool resizePartition(const QString& devicePath, int partitionNumber, long long newEndMBytes);
     PedPartitionFlag flagNameToEnum(const std::string& flag_name);
@@ -60,3 +66,4 @@ private:
 };
 
 #endif // DISKMANAGER_H
+
