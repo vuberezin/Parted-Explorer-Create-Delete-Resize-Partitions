@@ -233,9 +233,11 @@ void MainWindow::onCreatePartitionClicked() {
         &ok
         );
     // Perform custom validation (e.g., check Partition Type)
-     if (PartitionType == "primary" && PartitionType == "extended" && PartitionType == "logical") {
+    if (PartitionType == QString::fromStdString("primary") ||
+        PartitionType == QString::fromStdString("extended") ||
+        PartitionType == QString::fromStdString("logical")){
          // Input is valid, break the loop
-         return;
+         //return;
      } else {
          // Input is invalid, show a warning and the loop continues
          QMessageBox::warning(this, tr("Invalid Input"),
