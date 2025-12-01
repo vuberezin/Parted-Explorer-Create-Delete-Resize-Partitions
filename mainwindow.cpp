@@ -55,51 +55,119 @@ void MainWindow::refreshDiskList() {
 }
 
 void MainWindow::displayDevices(const std::vector<DeviceInfo>& devices) {
+    // Clear existing items and reset map for the robust single-pass approach
+    treeWidget->clear();
+
+    // Map to keep track of the parent QTreeWidgetItem* for extended partitions, keyed by device path/identifier
+    QMap<QString, QTreeWidgetItem*> extendedPartitionsMap;
+
     for (const auto& dev : devices) {
         QTreeWidgetItem *devItem = new QTreeWidgetItem(treeWidget);
         treeWidget->setColumnWidth(0, 300);
         treeWidget->setColumnWidth(5, 160);
+
+        // Display the main device name and path (e.g., "Hitachi 500GB (/dev/sda)")
         devItem->setText(0, QString("%1 (%2)").arg(dev.model).arg(dev.path));
-        devItem->setText(1, QString::number(dev.size / (1024*1024*1024.0), 'f', 2));
-        devItem->setData(0, Qt::UserRole, dev.path); // Store path for operations
+
+        // Display size formatted to 2 decimal places in GB
+        devItem->setText(1, QString::number(dev.size / (1024.0 * 1024.0 * 1024.0), 'f', 2));
+
+        // Store the main device path internally in the root item
+        devItem->setData(0, Qt::UserRole, dev.path);
         treeWidget->addTopLevelItem(devItem);
 
+        // Iterate through all partitions in this device
         for (const auto& part : dev.partitions) {
-            QTreeWidgetItem *partItem = new QTreeWidgetItem(devItem);
-            QString name = part.isFreeSpace ? "Free Space" : QString("Partition %1").arg(part.number);
-            partItem->setText(0, name);
-            partItem->setText(1, QString::number(part.size / (1024*1024*1024.0), 'f', 2));
-            partItem->setText(2, QString::number(part.start / (1024*1024.0), 'f', 2));
-            partItem->setText(3, QString::number(part.end / (1024*1024.0), 'f', 2));
+            QTreeWidgetItem* parentItem = devItem;
+
+            // Determine if this is the extended container definition using string comparison
+            bool isExtendedContainer = part.type.contains("Extended", Qt::CaseInsensitive) || part.type.contains("0x05");
+
+            if (isExtendedContainer) {
+                // Create the extended container item itself
+                QTreeWidgetItem *extItem = new QTreeWidgetItem(devItem);
+                extItem->setText(0, QString("Extended Partition Container"));
+                extItem->setText(1, QString::number(part.size / (1024.0 * 1024.0 * 1024.0), 'f', 2));
+
+                // Map this item so subsequent logical/free spaces can find their parent QWidgetItem
+                // The key should be the identifier that links logical partitions back to this container
+                extendedPartitionsMap.insert(part.devicePath, extItem);
+
+            } else if (extendedPartitionsMap.contains(part.devicePath)) {
+                // If this partition/free space belongs to an extended partition we've mapped,
+                // set the parent to the mapped container item instead of the main device item
+                parentItem = extendedPartitionsMap.value(part.devicePath);
+            }
+
+            // Determine the descriptive name for the current partition/free space
+            QString name;
+            if (part.isFreeSpace) {
+                name = "Free Space";
+            } else if (parentItem != devItem) {
+                // If the parent is the extended container (not the top-level device)
+                name = QString("Logical Partition %1").arg(part.number);
+            } else {
+                // Must be a primary partition
+                name = QString("Partition %1").arg(part.number);
+            }
+
+            // Create the actual partition/free space item
+            QTreeWidgetItem *partItem = new QTreeWidgetItem(parentItem);
+
+            // Set display text for all columns
+            partItem->setText(0, name); // Displays just the name, without device path
+            partItem->setText(1, QString::number(part.size / (1024.0 * 1024.0 * 1024.0), 'f', 2)); // Size in GB
+            partItem->setText(2, QString::number(part.start / (1024.0 * 1024.0), 'f', 2)); // Start in MB
+            partItem->setText(3, QString::number(part.end / (1024.0 * 1024.0), 'f', 2));   // End in MB
             partItem->setText(4, part.type);
             partItem->setText(5, part.fileSystem);
             partItem->setText(6, part.flags);
-            partItem->setData(0, Qt::UserRole, part.number); // Store partition number
-            partItem->setData(1, Qt::UserRole, part.devicePath); // Store device path
-            partItem->setData(2, Qt::UserRole, part.isFreeSpace); // Store isFreeSpace flag
-            devItem->addChild(partItem);
+
+            // Store internal data using User Roles (for reliable data retrieval later)
+            // Ensure you use consistent indices across displayDevices and getSelectedPartitionInfo
+            partItem->setData(0, Qt::UserRole + 0, part.number);        // Partition Number
+            partItem->setData(0, Qt::UserRole + 1, part.devicePath);    // Device Path (e.g., /dev/sda5)
+            partItem->setData(0, Qt::UserRole + 2, part.isFreeSpace);   // Is Free Space Flag
+            partItem->setData(0, Qt::UserRole + 3, part.size);          // Raw Size (bytes/double)
+            partItem->setData(0, Qt::UserRole + 4, part.start);        // Raw Start (bytes/MB/double)
+            partItem->setData(0, Qt::UserRole + 5, part.end);          // Raw End (bytes/MB/double)
         }
     }
+    // Ensure all items are visible in their hierarchy
     treeWidget->expandAll();
 }
+
+
 
 // Helper to get info from selected item
 PartitionInfo MainWindow::getSelectedPartitionInfo() {
     QTreeWidgetItem *currentItem = treeWidget->currentItem();
-    if (!currentItem || currentItem->parent() == nullptr) return {}; // Need a partition item
+
+    // Check if an item is selected and it is a child (a partition/free space, not the main device or the extended container)
+    // You might want to allow selection of the "Extended Partition Container" if you add data storage to that item too.
+    if (!currentItem || currentItem->parent() == nullptr) {
+        return {};
+    }
 
     PartitionInfo info;
-    info.number = currentItem->data(0, Qt::UserRole).toInt();
-    info.devicePath = currentItem->data(1, Qt::UserRole).toString();
-    info.isFreeSpace = currentItem->data(2, Qt::UserRole).toBool();
+
+    // Retrieve all data from the stored User Roles
+    // (We use Qt::UserRole + index to avoid collisions if multiple columns have user data)
+    info.number = currentItem->data(0, Qt::UserRole + 0).toInt();
+    info.devicePath = currentItem->data(0, Qt::UserRole + 1).toString();
+    info.isFreeSpace = currentItem->data(0, Qt::UserRole + 2).toBool();
+
+    // Retrieve raw numerical values safely using toDouble() or qulonglong/quint64 if using bytes
+    // Adjust the types based on how you stored them in displayDevices (e.g., as raw bytes or a double representation of MB/GB)
     info.start =  currentItem->text(2).toDouble();
     info.end =  currentItem->text(3).toDouble();
-    //qDebug() << "Info.start: " << info.start << "Info.end: " << info.end;
-    // Retrieve other data from the display text (simplification)
-    //info.size = (info.end - info.start)/1024; //currentItem->text(1).toDouble(); // Approx size
-    //qDebug() << "Info.start: " << info.start << "Info.end: " << info.end << "info.size: " << info.size;
+
+    // Your debug statements
+    // qDebug() << "Info.start: " << info.start << "Info.end: " << info.end << "info.size: " << info.size;
+
     return info;
 }
+
 
 QString MainWindow::getSelectedDevicePath() {
     QTreeWidgetItem *currentItem = treeWidget->currentItem();
@@ -111,6 +179,7 @@ QString MainWindow::getSelectedDevicePath() {
         return currentItem->parent()->data(0, Qt::UserRole).toString();
     }
 }
+
 
 
 void MainWindow::onCreatePartitionClicked() {
@@ -152,6 +221,18 @@ void MainWindow::onCreatePartitionClicked() {
         "ext4",
         &ok
         );
+     if (!ok || fsType.isEmpty()) return;
+
+    // 3. Get the Partition type from the user
+    QString PartitionType = QInputDialog::getText(
+        this,
+        "Create Partition",
+        "Enter Partition Type (e.g., primary, extended):",
+        QLineEdit::Normal,
+        "primary",
+        &ok
+        );
+     if (!ok || PartitionType.isEmpty()) return;
 
     if (ok && !fsType.isEmpty()) {
         // 3. Calculate the new end sector based on the desired size in MB
@@ -167,7 +248,7 @@ void MainWindow::onCreatePartitionClicked() {
         // 4. Call createPartition with the specified start and *new* end points
         // Assuming diskManager.createPartition uses start and end sectors
         //qDebug() << "fsType: " << fsType;
-        if (diskManager.createPartition(pInfo.devicePath, pInfo.start, newEndMB, fsType, true)) {
+        if (diskManager.createPartition(pInfo.devicePath, pInfo.start, newEndMB, fsType, PartitionType)) {
             QMessageBox::information(this, "Success", "Partition created. You may need to run 'partprobe' in terminal to update OS view.");
             refreshDiskList();
         } else {
@@ -264,4 +345,5 @@ void MainWindow::oncCreateDiskFlagClicked() {
         QMessageBox::critical(this, "Failed", "Invalid flag name entered or device not found.");
     }
 }
+
 
