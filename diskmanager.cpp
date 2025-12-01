@@ -189,7 +189,7 @@ QString DiskManager::getPartitionFlags(PedPartition *partition) {
 
 // --- Disk Operations ---
 
-bool DiskManager::createPartition(const QString& devicePath, long long startBytes, long long endBytes, const QString& fsType, bool isPrimary) {
+bool DiskManager::createPartition(const QString& devicePath, long long startBytes, long long endBytes, const QString& fsType,  const QString& PartitionType) {
     PedDevice *dev = ped_device_get(devicePath.toUtf8().constData());
     if (!dev) return false;
 
@@ -206,6 +206,7 @@ bool DiskManager::createPartition(const QString& devicePath, long long startByte
     PedSector endSector = endBytes *  1024 * 1024 / dev->sector_size;
     qDebug() << "startSector:  " << startSector << "endSector:  " << endSector;
 
+
     if (endSector <= startSector) {
         qDebug() << "Invalid partition size or end sector calculation.";
         // Clean up disk object before returning
@@ -213,8 +214,25 @@ bool DiskManager::createPartition(const QString& devicePath, long long startByte
         return false;
     }
 
-    PedPartitionType type = isPrimary ? PED_PARTITION_NORMAL : PED_PARTITION_LOGICAL;
+    //PedPartitionType type = isPrimary ? PED_PARTITION_NORMAL : PED_PARTITION_EXTENDED;
     const PedFileSystemType *fsTypePtr = ped_file_system_type_get(fsType.toUtf8().constData());
+    PedPartitionType type;
+
+    if (PartitionType == QString::fromStdString("primary")) {
+        type = PED_PARTITION_NORMAL;
+        }
+    else if(PartitionType == QString::fromStdString("extended")){
+        type = PED_PARTITION_EXTENDED;
+        // Assume 'fsTypePtr' is defined often NULL for extended containers as they don't hold a direct filesystem
+        fsTypePtr = NULL;
+        }
+    else if(PartitionType == QString::fromStdString("logical")){
+        type = PED_PARTITION_LOGICAL;
+        }
+    else{
+        qDebug() << "Invalid Partition Type specified: " << PartitionType;
+        return false; // Error handling
+        }
 
     // Use aligned partition creation
     PedConstraint *constraint = ped_constraint_any(dev);
@@ -252,18 +270,19 @@ bool DiskManager::createPartition(const QString& devicePath, long long startByte
 
         //1. Determine the device path of the new partition (e.g. /dev/sda1, /dev/nvme0n1p3)
         //You can use newPartition->num for this, appending it to the base devicePath
-        //We use + "p" only for /dev/loop0p1 as a test partition 
+        //we use + "p" only for /dev/loop0p1 as a test partition
         QString newPartPath;
         if(devicePath == "/dev/loop0"){
             newPartPath = devicePath + "p" + QString::number(newPartition->num); // <------- it's only for test
-        } else {            
+        } else {
+
             newPartPath = devicePath + QString::number(newPartition->num);
         }
 
         // 2. Execute the mkfs command
-        if (fsType == "ext4") {
+        if (fsType == "ext4" && fsTypePtr != NULL) {
             QProcess::execute("mkfs.ext4", QStringList() << newPartPath);
-        } else if (fsType == "ntfs") {
+        } else if (fsType == "ntfs" && fsTypePtr != NULL) {
             QProcess::execute("mkfs.ntfs", QStringList() << newPartPath);
         }
         qDebug() << "Filesystem formatting command executed. Check system logs for final status.";
@@ -287,6 +306,8 @@ bool DiskManager::createPartition(const QString& devicePath, long long startByte
         qDebug() << "Failed to create partition.";
         ped_disk_delete_all(disk); // Cleanup if commit fails
     }
+
+
 }
 
 bool DiskManager::deletePartition(const QString& devicePath, int partitionNumber) {
@@ -330,6 +351,8 @@ bool DiskManager::deletePartition(const QString& devicePath, int partitionNumber
     close_my_device();
     return success;
 }
+
+
 
 bool DiskManager::resizePartition(const QString& devicePath, int partitionNumber, long long newEndMBytes) {
     // libparted works with device names like "/dev/sda"
@@ -509,3 +532,4 @@ PedDevice* DiskManager::getDeviceFromPath(const QString& path) {
 
     return dev;
 }
+
