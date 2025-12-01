@@ -34,4 +34,3 @@ private:
     QString getSelectedDevicePath();
 };
 #endif // MAINWINDOW_H
-
