@@ -247,7 +247,7 @@ void MainWindow::onCreatePartitionClicked() {
         fsType = QInputDialog::getText(
             this,
             "Create Partition",
-            "Enter File System Type (e.g., ext4, ntfs, xfc):<br>"
+            "Enter File System Type (e.g., ext4, ntfs, xfs):<br>"
             "<span style=\"color:grey;\">Note: If the file system type is invalid, it will be empty.</span>",
             QLineEdit::Normal,
             "ext4", // Default suggestion
