@@ -284,7 +284,7 @@ bool DiskManager::createPartition(const QString& devicePath, long long startByte
             QProcess::execute("mkfs.ext4", QStringList() << newPartPath);
         } else if (fsType == "ntfs" && fsTypePtr != NULL) {
             QProcess::execute("mkfs.ntfs", QStringList() << newPartPath);
-        }else if (fsType == "xfc" && fsTypePtr != NULL) {
+        } else if (fsType == "xfc" && fsTypePtr != NULL) {
             QProcess::execute("mkfs.xfc", QStringList() << newPartPath);
         }
         qDebug() << "Filesystem formatting command executed. Check system logs for final status.";
