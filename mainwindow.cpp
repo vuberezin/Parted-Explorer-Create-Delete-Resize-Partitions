@@ -216,7 +216,8 @@ void MainWindow::onCreatePartitionClicked() {
     QString PartitionType = QInputDialog::getText(
         this,
         "Create Partition",
-        "Enter Partition Type (e.g., primary, extended, logical):",
+        "Enter Partition Type (e.g., primary, extended, logical):<br>"
+        "<span style=\"color:grey;\">Note: A logical partition must be created within the extended partition.</span>",
         QLineEdit::Normal,
         "primary",
         &ok
@@ -246,7 +247,8 @@ void MainWindow::onCreatePartitionClicked() {
         fsType = QInputDialog::getText(
             this,
             "Create Partition",
-            "Enter File System Type (e.g., ext4, ntfs):",
+            "Enter File System Type (e.g., ext4, ntfs, etc.):<br>"
+            "<span style=\"color:grey;\">Note: If the file system type is invalid, it will be empty.</span>",
             QLineEdit::Normal,
             "ext4", // Default suggestion
             &ok
