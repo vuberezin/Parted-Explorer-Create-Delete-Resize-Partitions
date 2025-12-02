@@ -162,7 +162,7 @@ PartitionInfo MainWindow::getSelectedPartitionInfo() {
     info.start =  currentItem->text(2).toDouble();
     info.end =  currentItem->text(3).toDouble();
 
-    // Your debug statements
+    // debug statements
     // qDebug() << "Info.start: " << info.start << "Info.end: " << info.end << "info.size: " << info.size;
 
     return info;
@@ -212,18 +212,7 @@ void MainWindow::onCreatePartitionClicked() {
         return;
     }
 
-    // 2. Get the file system type from the user
-    QString fsType = QInputDialog::getText(
-        this,
-        "Create Partition",
-        "Enter File System Type (e.g., ext4, ntfs):",
-        QLineEdit::Normal,
-        "ext4",
-        &ok
-        );
-     if (!ok || fsType.isEmpty()) return;
-
-    // 3. Get the Partition type from the user
+    // 2. Get the Partition type from the user
     QString PartitionType = QInputDialog::getText(
         this,
         "Create Partition",
@@ -232,21 +221,45 @@ void MainWindow::onCreatePartitionClicked() {
         "primary",
         &ok
         );
+    if (!ok || PartitionType.isEmpty()) return;
     // Perform custom validation (e.g., check Partition Type)
     if (PartitionType == QString::fromStdString("primary") ||
         PartitionType == QString::fromStdString("extended") ||
         PartitionType == QString::fromStdString("logical")){
-         // Input is valid, break the loop
-         //return;
-     } else {
-         // Input is invalid, show a warning and the loop continues
-         QMessageBox::warning(this, tr("Invalid Input"),
-                              tr("Partition Type must be primary, extended or logical. Please try again."));
-         return;
-     }
-     if (!ok || PartitionType.isEmpty()) return;
+        // Input is valid, break the loop
+        //return;
+    } else {
+        // Input is invalid, show a warning and the loop continues
+        QMessageBox::warning(this, tr("Invalid Input"),
+                             tr("Partition Type must be primary, extended or logical. Please try again."));
+        return;
+    }
 
-    if (ok && !fsType.isEmpty()) {
+    // 3. Get the file system type from the user
+    QString fsType;
+    if (PartitionType == "extended") {
+        // Extended partitions don't need a formal FS type, set a neutral default or empty string
+        fsType = "";
+        ok = true; // Assume success for this step
+    } else {
+        // For primary/logical partitions, ask the user for a filesystem type
+        fsType = QInputDialog::getText(
+            this,
+            "Create Partition",
+            "Enter File System Type (e.g., ext4, ntfs):",
+            QLineEdit::Normal,
+            "ext4", // Default suggestion
+            &ok
+            );
+    }
+
+    // Check if the user cancelled the input dialog if it was shown
+    if (!ok) {
+        return; // Stop the onCreatePartitionClicked function execution
+    }
+
+
+    if (ok /*&& !fsType.isEmpty()*/) {
         // 3. Calculate the new end sector based on the desired size in MB
         // Assumes 512-byte sectors (standard) - adjust if your system uses 4096-byte sectors
         long long sizeInMB = (long long)desiredSizeMB;// * 1024 * 1024 / 512;
@@ -357,5 +370,6 @@ void MainWindow::oncCreateDiskFlagClicked() {
         QMessageBox::critical(this, "Failed", "Invalid flag name entered or device not found.");
     }
 }
+
 
 
