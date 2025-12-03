@@ -217,7 +217,7 @@ void MainWindow::onCreatePartitionClicked() {
         this,
         "Create Partition",
         "Enter Partition Type (e.g., primary, extended, logical):<br>"
-        "<span style=\"color:grey;\">Note: A logical partition must be created within the extended partition.</span>",
+        "<span style=\"color:grey;\">Note: A logical partition must be created within <br>the extended partition.</span>",
         QLineEdit::Normal,
         "primary",
         &ok
